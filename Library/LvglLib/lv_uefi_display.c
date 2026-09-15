@@ -29,20 +29,20 @@ void uefi_disp_flush(lv_display_t * disp, const lv_area_t * area, lv_color32_t *
 
   Width = area->x2 - area->x1 + 1;
   Heigth = area->y2 - area->y1 + 1;
-  Delta = uefi_disp_data->EfiGop->Mode->Info->HorizontalResolution * sizeof(EFI_GRAPHICS_OUTPUT_BLT_PIXEL);
+  Delta = Width * sizeof(EFI_GRAPHICS_OUTPUT_BLT_PIXEL);
 
   uefi_disp_data->EfiGop->Blt (
-                            uefi_disp_data->EfiGop,
-                            (EFI_GRAPHICS_OUTPUT_BLT_PIXEL *)color32_p,
-                            EfiBltBufferToVideo,
-                            (UINTN)area->x1,
-                            (UINTN)area->y1,
-                            (UINTN)area->x1,
-                            (UINTN)area->y1,
-                            Width,
-                            Heigth,
-                            Delta
-                            );
+      uefi_disp_data->EfiGop,
+      (EFI_GRAPHICS_OUTPUT_BLT_PIXEL *)color32_p,
+      EfiBltBufferToVideo,
+      0,                   // SourceX -> Her zaman 0 olmalı (tamponun başı)
+      0,                   // SourceY -> Her zaman 0 olmalı (tamponun başı)
+      (UINTN)area->x1,     // DestinationX -> Ekranda çizileceği yer
+      (UINTN)area->y1,     // DestinationY -> Ekranda çizileceği yer
+      Width,
+      Height,
+      Delta
+  );
 
   lv_display_flush_ready(disp);
 }
@@ -73,11 +73,18 @@ lv_display_t * lv_uefi_disp_create(int32_t hor_res, int32_t ver_res)
     lv_display_set_flush_cb(disp, (lv_display_flush_cb_t)uefi_disp_flush);
     lv_display_add_event_cb(disp, uefi_disp_delete_evt_cb, LV_EVENT_DELETE, disp);
 
-    UINTN BufSize = hor_res * ver_res * sizeof (lv_color32_t);
-    uefi_disp_data->buffer[0] = malloc (BufSize);
-    uefi_disp_data->buffer[1] = malloc (BufSize);
+    UINTN BufSize = hor_res * 40 * sizeof(lv_color32_t);
 
-    lv_display_set_buffers(disp, uefi_disp_data->buffer[0], uefi_disp_data->buffer[1], BufSize, LV_DISPLAY_RENDER_MODE_DIRECT);
+    uefi_disp_data->buffer[0] = malloc(BufSize);
+    uefi_disp_data->buffer[1] = malloc(BufSize);
+
+    lv_display_set_buffers(
+        disp, 
+        uefi_disp_data->buffer[0], 
+        uefi_disp_data->buffer[1], 
+        BufSize, 
+        LV_DISPLAY_RENDER_MODE_PARTIAL
+    );
 
     return disp;
 }
